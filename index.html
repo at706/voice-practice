@@ -9,22 +9,13 @@
 /* Companion to the Warm Lead Command Center: same tokens. One column: setup, then a live call
    screen with meters above the transcript, then a delivery report. */
 :root{
-  --bg:#F2F8FC; --surface:#FFFFFF; --sunk:#E5F1F8; --line:#CFE2EE; --ink:#0B2338; --muted:#4A6177;
-  --accent:#02A6E3; --accent-ink:#FFFFFF; --accent-soft:#E1F4FC; --accent-text:#0079A8;
-  --bar:#02A6E3; --bar-ink:#FFFFFF; --bar-muted:#EAF8FE; --brand:#02A6E3; --brand-orange:#F68B1B;
-  --late:#A93226; --late-soft:#F8E2DF; --due:#7C5005; --due-soft:#F6EAD0; --ok:#1C6746; --ok-soft:#DCEFE5;
+  --bg:#FFFFFF; --surface:#FFFFFF; --sunk:#FFFFFF; --line:#02A6E3; --ink:#000000; --muted:#000000;
+  --accent:#02A6E3; --accent-ink:#FFFFFF; --accent-soft:#FFFFFF; --accent-text:#000000;
+  --bar:#02A6E3; --bar-ink:#FFFFFF; --bar-muted:#FFFFFF; --brand:#02A6E3; --brand-orange:#F68B1B;
+  --late:#F68B1B; --late-soft:#FFFFFF; --due:#F68B1B; --due-soft:#FFFFFF; --ok:#02A6E3; --ok-soft:#FFFFFF;
   --display:"Bricolage Grotesque","Segoe UI",system-ui,sans-serif;
   --body:"Atkinson Hyperlegible","Segoe UI",system-ui,-apple-system,sans-serif;
   --r:6px; color-scheme:light;
-}
-@media (prefers-color-scheme: dark){
-  :root{
-    --bg:#0A1620; --surface:#11212F; --sunk:#182B3C; --line:#25405A; --ink:#E7F1F8; --muted:#9BB3C7;
-    --accent:#02A6E3; --accent-ink:#FFFFFF; --accent-soft:#0E3A50; --accent-text:#5CCBF4;
-    --bar:#02A6E3; --bar-ink:#FFFFFF; --bar-muted:#EAF8FE; --brand:#02A6E3; --brand-orange:#F68B1B;
-    --late:#F3A093; --late-soft:#45221D; --due:#EBC272; --due-soft:#3E3114; --ok:#84D4AC; --ok-soft:#183628;
-    color-scheme:dark;
-  }
 }
 *{box-sizing:border-box}
 html,body{margin:0}
@@ -123,6 +114,32 @@ td.num,th.num{text-align:right;font-variant-numeric:tabular-nums;white-space:now
 details summary{cursor:pointer;padding:12px 16px;font-weight:700}
 .toast{position:fixed;left:50%;bottom:20px;transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:8px 14px;border-radius:var(--r);font-size:.9rem;font-weight:700;max-width:calc(100% - 32px);z-index:9}
 @media (max-width:720px){.meters{grid-template-columns:1fr 1fr}.meter:first-child{grid-column:1/-1}.meter{border-left:0;border-top:1px solid var(--line)}.meter:first-child{border-top:0}}
+
+/* Palette: only #02A6E3, #FFFFFF and #F68B1B, with black text so words stay readable. One light look in every theme. */
+.notice{border:1px solid #02A6E3}
+.btn--quiet:hover{background:#02A6E3;color:#FFFFFF}
+.btn--danger{border-color:#F68B1B;color:#000000}
+.pill{background:#FFFFFF;border:1px solid #02A6E3;color:#000000}
+.pill--ex{background:#FFFFFF;border-color:#F68B1B;color:#000000}
+.pill--ok{background:#02A6E3;border-color:#02A6E3;color:#FFFFFF}
+mark{border-radius:0;padding:0 1px}
+mark.f{background:transparent;color:#000000;border-bottom:2px solid #02A6E3}
+mark.b{background:transparent;color:#000000;border-bottom:2px dashed #F68B1B}
+.say--them p{background:#FFFFFF;border:1px solid #02A6E3}
+.say--you p{background:#FFFFFF;border:1px solid #F68B1B}
+.chat__note{background:#FFFFFF;color:#000000;border-top:2px solid #F68B1B}
+.toast{background:#02A6E3;color:#FFFFFF}
+.vol{background:#FFFFFF;border:1px solid #02A6E3}
+.vol i{background:#02A6E3}
+.notice--warn,.notice--bad{background:#FFFFFF;color:#000000;border:2px solid #F68B1B}
+.pill--warn,.pill--bad{background:#F68B1B;color:#FFFFFF;border:1px solid #F68B1B}
+.pill--plain{background:#FFFFFF;color:#000000;border:1px solid #02A6E3}
+.mictest{background:#FFFFFF;border:1px solid #02A6E3}
+.status[data-s="listening"] .dot{background:#02A6E3;box-shadow:0 0 0 3px #FFFFFF,0 0 0 5px #02A6E3}
+.status[data-s="prospect"] .dot{background:#F68B1B;box-shadow:none}
+.status[data-s="thinking"] .dot{background:#FFFFFF;box-shadow:inset 0 0 0 2px #02A6E3}
+.status[data-s="paused"] .dot{background:#FFFFFF;box-shadow:inset 0 0 0 2px #F68B1B}
+@keyframes pulse{50%{box-shadow:0 0 0 3px #FFFFFF,0 0 0 7px #02A6E3}}
 </style>
 </head>
 <body>
@@ -440,7 +457,7 @@ function startTicker(){
   },30);
 }
 let COL=null;
-function colors(){const cs=getComputedStyle(document.documentElement);return {line:cs.getPropertyValue("--line").trim(),accent:cs.getPropertyValue("--accent").trim(),muted:cs.getPropertyValue("--muted").trim()};}
+function colors(){const cs=getComputedStyle(document.documentElement);return {line:cs.getPropertyValue("--line").trim(),accent:cs.getPropertyValue("--accent").trim(),muted:cs.getPropertyValue("--muted").trim(),orange:cs.getPropertyValue("--brand-orange").trim()};}
 function drawTrace(now){
   const c=$("#pitch");if(!c||c.offsetParent===null)return;
   const w=c.clientWidth,h=c.clientHeight,dpr=window.devicePixelRatio||1;
@@ -449,8 +466,8 @@ function drawTrace(now){
   const g=c.getContext("2d");g.setTransform(dpr,0,0,dpr,0,0);g.clearRect(0,0,w,h);
   const lo=Math.log2(70),hi=Math.log2(400),y=f=>h-6-(Math.log2(f)-lo)/(hi-lo)*(h-12);
   g.font="10px system-ui,sans-serif";g.lineWidth=1;
-  for(const f of [100,150,200,300]){const yy=Math.round(y(f))+0.5;g.strokeStyle=COL.line;g.beginPath();g.moveTo(34,yy);g.lineTo(w,yy);g.stroke();g.fillStyle=COL.muted;g.fillText(f+" Hz",0,yy+3);}
-  g.strokeStyle=COL.accent;g.lineWidth=2.5;g.lineJoin="round";g.lineCap="round";g.beginPath();
+  for(const f of [100,150,200,300]){const yy=Math.round(y(f))+0.5;g.strokeStyle=COL.line;g.setLineDash([2,4]);g.beginPath();g.moveTo(34,yy);g.lineTo(w,yy);g.stroke();g.setLineDash([]);g.fillStyle=COL.muted;g.fillText(f+" Hz",0,yy+3);}
+  g.strokeStyle=COL.orange||COL.accent;g.lineWidth=2.5;g.lineJoin="round";g.lineCap="round";g.beginPath();
   let prev=null;
   for(const p of V.trace){
     if(!p.f0){prev=null;continue;}

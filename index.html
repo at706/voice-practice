@@ -1,0 +1,815 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Voice Practice</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=Bricolage+Grotesque:opsz,wght@12..96,500..700&display=swap">
+<style>
+/* Companion to the Warm Lead Command Center: same tokens. One column: setup, then a live call
+   screen with meters above the transcript, then a delivery report. */
+:root{
+  --bg:#F2F3F8; --surface:#FFFFFF; --sunk:#E9EBF3; --line:#D5D9E6; --ink:#171A2B; --muted:#596080;
+  --accent:#33407F; --accent-ink:#FFFFFF; --accent-soft:#E3E6F5;
+  --late:#A93226; --late-soft:#F8E2DF; --due:#7C5005; --due-soft:#F6EAD0; --ok:#1C6746; --ok-soft:#DCEFE5;
+  --display:"Bricolage Grotesque","Segoe UI",system-ui,sans-serif;
+  --body:"Atkinson Hyperlegible","Segoe UI",system-ui,-apple-system,sans-serif;
+  --r:6px; color-scheme:light;
+}
+@media (prefers-color-scheme: dark){
+  :root{
+    --bg:#12141F; --surface:#1B1E2D; --sunk:#242839; --line:#343A52; --ink:#ECEEF7; --muted:#A3AAC6;
+    --accent:#AAB5F6; --accent-ink:#12141F; --accent-soft:#2A3053;
+    --late:#F3A093; --late-soft:#45221D; --due:#EBC272; --due-soft:#3E3114; --ok:#84D4AC; --ok-soft:#183628;
+    color-scheme:dark;
+  }
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--bg);color:var(--ink);font-family:var(--body);font-size:16px;line-height:1.5;padding-inline:16px;padding-block:0 64px}
+h1,h2,h3,p,ul,ol{margin:0}
+ul,ol{padding:0;list-style:none}
+button,input,select,textarea{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+[hidden]{display:none!important}
+.shell{max-width:980px;margin-inline:auto;display:flex;flex-direction:column;gap:20px}
+.top{padding-block:18px 14px;border-bottom:1px solid var(--line);display:flex;align-items:baseline;gap:12px;flex-wrap:wrap}
+.top h1{font-family:var(--display);font-weight:700;font-size:1.5rem;letter-spacing:-.01em}
+.top p{color:var(--muted);font-size:.95rem}
+.block{background:var(--surface);border:1px solid var(--line);border-radius:var(--r)}
+.eyebrow{font-size:.75rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);font-weight:700}
+.muted{color:var(--muted)}
+.num{font-variant-numeric:tabular-nums}
+.btn{background:var(--accent);color:var(--accent-ink);border:1px solid var(--accent);border-radius:var(--r);padding:8px 14px;font-weight:700;font-size:.95rem;cursor:pointer;white-space:nowrap}
+.btn:hover{filter:brightness(1.1)}
+.btn:disabled{opacity:.5;cursor:default;filter:none}
+.btn--quiet{background:transparent;color:var(--accent);border-color:var(--line)}
+.btn--quiet:hover{background:var(--accent-soft);filter:none}
+.btn--big{padding:12px 20px;font-size:1.05rem}
+.notice{background:var(--accent-soft);border-radius:var(--r);padding:12px 16px;display:flex;gap:12px;align-items:center;justify-content:space-between;flex-wrap:wrap}
+.notice--warn{background:var(--due-soft);color:var(--due)}
+.notice--bad{background:var(--late-soft);color:var(--late)}
+a{color:var(--accent)}
+
+.form{padding:16px;display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(220px,1fr))}
+.form h2{grid-column:1/-1;font-family:var(--display);font-weight:600;font-size:1.2rem}
+.form .wide{grid-column:1/-1}
+.form label{display:flex;flex-direction:column;gap:4px;font-size:.85rem;font-weight:700;color:var(--muted);min-width:0}
+.form input,.form select,.form textarea{background:var(--bg);border:1px solid var(--line);border-radius:var(--r);padding:8px 10px;color:var(--ink);font-weight:400;font-size:1rem;width:100%}
+.form .row{grid-column:1/-1;display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.steps{grid-column:1/-1;display:flex;flex-direction:column;gap:6px;counter-reset:s;font-size:.95rem}
+.steps li{counter-increment:s;display:grid;grid-template-columns:24px 1fr;gap:6px}
+.steps li::before{content:counter(s);font-weight:700;color:var(--accent)}
+
+/* call */
+.callbar{display:flex;gap:12px;align-items:center;justify-content:space-between;flex-wrap:wrap;padding:12px 16px}
+.status{display:inline-flex;align-items:center;gap:10px;font-weight:700;font-size:1.05rem}
+.dot{width:12px;height:12px;border-radius:50%;background:var(--muted);flex:none}
+.status[data-s="listening"] .dot{background:var(--ok);box-shadow:0 0 0 4px var(--ok-soft)}
+.status[data-s="prospect"] .dot{background:var(--accent);box-shadow:0 0 0 4px var(--accent-soft)}
+.status[data-s="thinking"] .dot{background:var(--due)}
+.status[data-s="paused"] .dot{background:var(--late)}
+@media (prefers-reduced-motion:no-preference){.status[data-s="listening"] .dot{animation:pulse 1.4s ease-in-out infinite}}
+@keyframes pulse{50%{box-shadow:0 0 0 7px var(--ok-soft)}}
+.callbar .do{display:flex;gap:6px;flex-wrap:wrap}
+.meters{display:grid;grid-template-columns:minmax(0,1fr) 150px 150px;gap:0}
+.meter{padding:12px 16px;border-left:1px solid var(--line);display:flex;flex-direction:column;gap:6px;min-width:0}
+.meter:first-child{border-left:0}
+.meter b{font-family:var(--display);font-size:1.9rem;font-weight:600;line-height:1;font-variant-numeric:tabular-nums}
+.meter span.u{font-size:.8rem;color:var(--muted)}
+canvas{width:100%;height:96px;display:block}
+.vol{height:12px;border-radius:6px;background:var(--sunk);overflow:hidden;margin-top:6px}
+.vol i{display:block;height:100%;width:0;background:var(--ok);border-radius:6px}
+.log{display:flex;flex-direction:column;gap:12px;padding:16px;max-height:52vh;overflow-y:auto}
+.say{max-width:min(72ch,86%);display:flex;flex-direction:column;gap:3px}
+.say p{padding:8px 12px;border-radius:var(--r);white-space:pre-wrap;overflow-wrap:anywhere}
+.say--them{align-self:flex-start}
+.say--them p{background:var(--sunk)}
+.say--you{align-self:flex-end;align-items:flex-end}
+.say--you p{background:var(--accent-soft)}
+.say--live p{background:transparent;border:1px dashed var(--line);color:var(--muted)}
+.say small{font-size:.8rem;color:var(--muted);font-variant-numeric:tabular-nums}
+.hint{font-size:.85rem;color:var(--muted);padding:0 16px 12px}
+.hint:empty{display:none}
+.mictest{display:flex;flex-direction:column;gap:8px;background:var(--bg);border-radius:var(--r);padding:12px 14px}
+#mt-result{font-weight:700}
+
+/* report */
+.head{display:flex;justify-content:space-between;align-items:flex-end;gap:12px;flex-wrap:wrap}
+.head h2{font-family:var(--display);font-weight:600;font-size:1.35rem}
+.tablewrap{overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-size:.95rem}
+th,td{text-align:left;padding:10px 16px;border-top:1px solid var(--line);vertical-align:top}
+thead th{border-top:0;font-size:.75rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+td.num,th.num{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+.pill{display:inline-block;font-size:.8rem;font-weight:700;padding:2px 9px;border-radius:99px;white-space:nowrap}
+.pill--ok{background:var(--ok-soft);color:var(--ok)}
+.pill--warn{background:var(--due-soft);color:var(--due)}
+.pill--bad{background:var(--late-soft);color:var(--late)}
+.pill--plain{background:var(--sunk);color:var(--muted)}
+.coach{padding:0}
+.coach h3{font-family:var(--display);font-weight:600;font-size:1.15rem;padding:12px 16px;border-bottom:1px solid var(--line)}
+.coach .body{padding:14px 16px;white-space:pre-wrap;max-width:75ch}
+.coach .lab{display:block;font-size:.75rem;letter-spacing:.08em;color:var(--muted);margin-top:8px}
+.coach .lab:first-child{margin-top:0}
+.foot{font-size:.85rem;color:var(--muted);padding:10px 16px;border-top:1px solid var(--line)}
+details summary{cursor:pointer;padding:12px 16px;font-weight:700}
+.toast{position:fixed;left:50%;bottom:20px;transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:8px 14px;border-radius:var(--r);font-size:.9rem;font-weight:700;max-width:calc(100% - 32px);z-index:9}
+@media (max-width:720px){.meters{grid-template-columns:1fr 1fr}.meter:first-child{grid-column:1/-1}.meter{border-left:0;border-top:1px solid var(--line)}.meter:first-child{border-top:0}}
+</style>
+</head>
+<body>
+<div class="shell">
+  <header class="top"><h1>Voice Practice</h1><p>Talk out loud with an AI prospect and see how you sound.</p></header>
+
+  <div id="browser-msg" class="notice notice--bad" hidden></div>
+
+  <!-- KEY -->
+  <section class="block form" id="v-key" hidden>
+    <h2>Connect to Claude</h2>
+    <ol class="steps">
+      <li><span>Go to <a href="https://platform.claude.com/settings/keys" target="_blank" rel="noopener">platform.claude.com</a> and sign in or create an account.</span></li>
+      <li><span>Add a payment method or credits on the Billing page, and set a monthly spend limit there. This is billed separately from your Claude plan. A practice call usually costs a few cents or less.</span></li>
+      <li><span>On the API keys page, click Create key, name it "Voice Practice", and copy the key. It starts with sk-ant- and is shown only once.</span></li>
+      <li><span>Paste it below.</span></li>
+    </ol>
+    <label class="wide">API key<input id="key-in" type="password" autocomplete="off" spellcheck="false" placeholder="sk-ant-..."></label>
+    <div class="row"><button class="btn" id="key-save" type="button">Save key</button><button class="btn btn--quiet" id="key-cancel" type="button" hidden>Cancel</button><span class="muted" style="font-size:.85rem;flex:1 1 260px">The key stays in this browser on this computer and is sent only to Claude.</span></div>
+  </section>
+
+  <!-- SETUP -->
+  <section class="block form" id="v-setup">
+    <h2>Who are you talking to?</h2>
+    <label>Where<select id="mode"><option value="person">In person</option><option value="phone">Phone call</option></select></label>
+    <label>Situation<select id="scen"></select></label>
+    <label>How hard<select id="level"></select></label>
+    <label class="wide">Quick context<textarea id="ctx" rows="3" maxlength="2000" placeholder="Example: owner of a 12-person dental office, already has health insurance through a broker, was burned by a pushy rep last year"></textarea></label>
+    <label>Prospect's voice<select id="voice"></select></label>
+    <label>Wait after you stop talking<select id="wait"><option value="1200">Short (1.2 seconds)</option><option value="1800" selected>Normal (1.8 seconds)</option><option value="2600">Long (2.6 seconds)</option></select></label>
+    <div class="row">
+      <button class="btn btn--big" id="start" type="button">Start practice</button>
+      <button class="btn btn--quiet" id="test-voice" type="button">Hear the voice</button>
+      <span class="muted" style="font-size:.85rem;flex:1 1 260px">Wear headphones so the prospect doesn't hear itself. Leave the context empty and the prospect invents a believable owner.</span>
+    </div>
+    <div class="row"><button class="btn btn--quiet" id="mic-test-btn" type="button">Test my microphone</button><span class="muted" style="font-size:.85rem;flex:1 1 260px">Run this first if the app doesn't seem to hear you. It takes 8 seconds.</span></div>
+    <div class="wide mictest" id="mic-test" hidden>
+      <div class="vol"><i id="mt-vol"></i></div>
+      <p><span class="eyebrow">Heard</span> <span id="mt-heard">…</span></p>
+      <p class="muted" id="mt-rec"></p>
+      <p id="mt-result"></p>
+    </div>
+    <div class="row"><span class="muted" style="font-size:.85rem" id="key-status"></span><button class="btn btn--quiet" id="key-change" type="button">Change key</button></div>
+  </section>
+
+  <!-- CALL -->
+  <section id="v-call" hidden style="display:flex;flex-direction:column;gap:16px">
+    <div class="block">
+      <div class="callbar">
+        <span class="status" id="status" data-s="thinking"><span class="dot"></span><span id="status-text">Starting</span></span>
+        <span class="muted num" id="clock">0:00</span>
+        <span class="do">
+          <button class="btn" id="done" type="button" title="Space bar">Done talking</button>
+          <button class="btn btn--quiet" id="skip" type="button" title="Esc">Skip their line</button>
+          <button class="btn btn--quiet" id="pause" type="button">Pause mic</button>
+          <button class="btn btn--quiet" id="end" type="button">End and get coaching</button>
+        </span>
+      </div>
+      <div class="meters" style="border-top:1px solid var(--line)">
+        <div class="meter"><span class="eyebrow">Your pitch, last 6 seconds</span><canvas id="pitch" aria-label="Live pitch of your voice"></canvas></div>
+        <div class="meter"><span class="eyebrow">Volume</span><div class="vol"><i id="vol"></i></div><span class="u" id="vol-note">&nbsp;</span></div>
+        <div class="meter"><span class="eyebrow">Pace this turn</span><b id="pace">–</b><span class="u">words per minute</span></div>
+      </div>
+    </div>
+    <div id="call-msg"></div>
+    <div class="block">
+      <ol class="log" id="log"></ol>
+      <p class="hint" id="diag" role="status"></p>
+      <p class="hint">Talk normally. When you pause, your turn ends and the prospect answers. Space bar ends your turn right away.</p>
+    </div>
+  </section>
+
+  <!-- REPORT -->
+  <section id="v-report" hidden style="display:flex;flex-direction:column;gap:16px">
+    <div class="head"><div><p class="eyebrow" id="rep-sub"></p><h2>How it went</h2></div>
+      <span style="display:flex;gap:6px;flex-wrap:wrap"><button class="btn" id="again" type="button">Practice this prospect again</button><button class="btn btn--quiet" id="new" type="button">New prospect</button></span></div>
+    <div class="block coach"><h3>Coaching</h3><div class="body" id="coach"></div><div id="coach-msg"></div></div>
+    <div class="block"><div class="tablewrap"><table id="stats"></table></div>
+      <p class="foot">Measured from your microphone. Treat these as rough guides and compare against your own earlier calls rather than as exact scores.</p></div>
+    <details class="block" id="hist-wrap"><summary>Your recent calls</summary><div class="tablewrap"><table id="hist"></table></div></details>
+    <details class="block"><summary>Transcript, turn by turn</summary><div class="tablewrap"><table id="turns"></table></div></details>
+  </section>
+</div>
+<div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
+
+<script>
+(function(){
+"use strict";
+const $=s=>document.querySelector(s);
+const esc=s=>String(s==null?"":s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const store={get:k=>{try{return localStorage.getItem(k);}catch(e){return null;}},set:(k,v)=>{try{localStorage.setItem(k,v);}catch(e){}},del:k=>{try{localStorage.removeItem(k);}catch(e){}}};
+let toastT;function toast(m){const t=$("#toast");t.textContent=m;t.hidden=false;clearTimeout(toastT);toastT=setTimeout(()=>{t.hidden=true;},2800);}
+const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+const TTS="speechSynthesis" in window;
+const PROSPECT_MODEL="claude-haiku-5-5", COACH_MODEL="claude-sonnet-5-5";
+
+/* ---------- scenarios (same as the command center) ---------- */
+const SCEN={
+ cold:{person:["Cold walk-in","The advisor has walked into your business unannounced. You have never met them. You are at work, in the middle of your day."],
+  phone:["Cold call","The advisor is calling your business cold. You have never heard of them. You pick up the phone at work."]},
+ warm:{person:["Walk-in near a client","The advisor has walked into your business because they look after the benefits at a business near yours. You do not know the advisor. You are at work, in the middle of your day."],
+  phone:["Warm call near a client","The advisor is calling because they look after the benefits at a business near yours. You do not know the advisor. You pick up the phone at work."]},
+ intro:{person:["First visit after an introduction","An owner you know and trust introduced the advisor to you by text a few days ago. The advisor has stopped by your business to meet you in person for the first time."],
+  phone:["First call after an introduction","An owner you know and trust introduced the advisor to you by text a few days ago. This is your first conversation with the advisor, by phone."]},
+ meeting:{person:["15-minute benefits check","You agreed to a 15-minute benefits check at your business, and the advisor has just sat down with you. You are willing to listen and have made no commitment."],
+  phone:["15-minute benefits check","You agreed to a 15-minute benefits check by phone and it is starting now. You are willing to listen and have made no commitment."]},
+ gate:{person:["Getting past the front desk","You are the office manager or receptionist at the front desk. The advisor has walked in and wants to see the owner, who is busy. You screen visitors."],
+  phone:["Getting past the front desk","You are the office manager. You answer the phone and screen calls for the owner, who is busy."]},
+ ask:{person:["Asking a client for introductions","You are an existing client. The advisor enrolled your employees a few months ago and is visiting today. You are happy with the service. If asked for introductions you hesitate a little, as most people do, before thinking of names."],
+  phone:["Asking a client for introductions","You are an existing client. The advisor enrolled your employees a few months ago and is calling to check in. You are happy with the service. If asked for introductions you hesitate a little, as most people do, before thinking of names."]},
+ partner:{person:["Coffee with a referral partner","You serve small businesses as a broker, payroll rep or accountant, and you share a client with the advisor. The advisor asked you for coffee and you are sitting down together now. You are polite, and you wonder what is in it for you and whether the advisor would step on your business."],
+  phone:["Call with a referral partner","You serve small businesses as a broker, payroll rep or accountant, and you share a client with the advisor. The advisor is calling to introduce themselves. You are polite, and you wonder what is in it for you and whether the advisor would step on your business."]}
+};
+const MODE={person:"In person",phone:"Phone call"};
+const sc=(k,mode)=>(SCEN[k]||SCEN.cold)[mode==="phone"?"phone":"person"];
+const modeOf=m=>(m&&m.mode==="phone")?"phone":"person";
+const MODE_RULE={person:"- This is face to face. You can only be heard, not seen, so never describe actions or surroundings. Act like someone interrupted at work: you might be helping a customer or an employee, ask for a card, ask them to come back another time, or say the owner is not in.",
+ phone:"- This is a phone call. Act like someone interrupted at work: you might be busy, want to get off the phone quickly, or ask them to just send an email."};
+const OPENING={person:"Say your first line, the way this person would greet someone who just walked in, or, for a scheduled meeting or coffee, greet the advisor as you sit down.",
+ phone:"Say your first line, the way this person would answer the phone at work, or, for a scheduled call, greet the advisor."};
+const MODE_COACH={person:"This was an in-person conversation. Also coach on giving a clear reason for the visit early, respecting that the person is in the middle of work, and leaving with a scheduled next step rather than only dropping off a card. Body language could not be observed, so do not comment on it.",
+ phone:"This was a phone call. Also coach on earning the first 30 seconds, respecting their time, and ending with a scheduled next step."};
+const LEVEL={
+ easy:["Easygoing","Friendly and open. Raise one mild objection."],
+ real:["Realistic","Polite, busy and a little guarded. Raise two or three real objections, one at a time."],
+ tough:["Tough","Skeptical and short on time. Push back hard, cut in, and try to end the conversation quickly. A very good conversation can still win you over."]
+};
+function systemPrompt(m){
+  return "This is a spoken sales practice session for a benefits advisor who sells voluntary (supplemental) employee benefits to small businesses. You play the other person in the conversation. The user is the advisor. Never write the advisor's lines.\n\n"+
+  "Setting: "+MODE[modeOf(m)]+"\n\n"+
+  "Situation: "+sc(m.sc,m.mode)[1]+"\n\n"+
+  "Who you are: "+(m.ctx||"Not given. Invent a believable person for this situation with a name, a type of business and between 5 and 40 employees, and keep those details consistent.")+"\n\n"+
+  "Your attitude: "+LEVEL[m.lv][1]+"\n\n"+
+  "How to play it:\n"+
+  "- Your lines are read aloud by a text-to-speech voice. Write only the words this person says out loud: no narration, stage directions, brackets, lists, symbols or emoji.\n"+
+  "- Talk like a real person "+(modeOf(m)==="phone"?"on the phone":"face to face")+": one to three short sentences each turn. Contractions and casual phrasing are good.\n"+
+  MODE_RULE[modeOf(m)]+"\n"+
+  "- The advisor's lines come from speech recognition. They may have no punctuation or a misheard word. Read them charitably and never mention transcription.\n"+
+  "- Each advisor line may end with a bracketed note starting \"Delivery:\" that describes how it sounded, measured from their voice. React to it the way a real person reacts to tone. Rushed, unsure, flat or hesitant delivery makes you more guarded, impatient or eager to get off the call. Calm, steady, confident delivery at an easy pace makes you a little more open. Never quote or mention the note, and only comment on how they sound if a real person plausibly would, such as asking them to slow down.\n"+
+  "- Be realistic, not easy. Use the objections real owners use when they fit: no time, we already have benefits, I don't want to add cost, my people won't want it, a pushy rep burned me before, just send me an email, call me after the new year.\n"+
+  "- React to what the advisor actually says. Warm up when they ask good questions, listen and stay brief and specific. Cool off when they pitch too early, talk too long, dodge a question or push.\n"+
+  "- Agree to a next step only if the advisor earns it. If the advisor ends the conversation, say goodbye in one line.\n"+
+  "- Do not invent facts about the advisor's products, prices or company. If something only the advisor would know comes up, ask them about it.\n"+
+  "- Stay in character no matter what the advisor says.";
+}
+
+/* ---------- state ---------- */
+const V={turnSeq:0,carryFinal:"",carryInterim:"",lastProspect:"",testHeard:"",testMax:-100,recErr:"",state:"idle",turns:[],meta:null,sid:0,ctl:null,
+  rec:null,recOn:false,wantRec:false,recBlocked:false,finalUpto:0,turnFinal:"",interim:"",lastTextAt:0,
+  stream:null,ctx:null,an:null,buf:null,sr:48000,tick:null,trace:[],frames:[],speechDb:-45,noiseDb:-60,
+  heardVoice:false,firstVoice:0,lastVoice:0,turnStart:0,paused:false,waitMs:1800,callStart:0,voice:null,errorRetry:null};
+
+/* ---------- pitch (YIN) ---------- */
+function yin(buf,sr){
+  const N=buf.length,W=N>>1,tauMin=Math.max(2,Math.floor(sr/400)),tauMax=Math.min(Math.floor(sr/70),N-W-1);
+  const d=new Float32Array(tauMax+2);
+  for(let tau=1;tau<=tauMax;tau++){let s=0;for(let i=0;i<W;i++){const x=buf[i]-buf[i+tau];s+=x*x;}d[tau]=s;}
+  const c=new Float32Array(tauMax+2);c[0]=1;let run=0;
+  for(let tau=1;tau<=tauMax;tau++){run+=d[tau];c[tau]=run>0?d[tau]*tau/run:1;}
+  let tau=-1;
+  for(let t=tauMin;t<=tauMax;t++){if(c[t]<0.15){while(t+1<=tauMax&&c[t+1]<c[t])t++;tau=t;break;}}
+  if(tau<0)return null;
+  const x0=c[tau-1],x1=c[tau],x2=tau+1<=tauMax?c[tau+1]:x1,den=x0+x2-2*x1;
+  const shift=den?Math.max(-1,Math.min(1,(x0-x2)/(2*den))):0;
+  return sr/(tau+shift);
+}
+window.__yin=yin;
+
+/* ---------- small stats ---------- */
+const med=a=>{if(!a.length)return null;const s=a.slice().sort((x,y)=>x-y),m=s.length>>1;return s.length%2?s[m]:(s[m-1]+s[m])/2;};
+const mean=a=>a.length?a.reduce((x,y)=>x+y,0)/a.length:null;
+const sd=a=>{if(a.length<2)return null;const m=mean(a);return Math.sqrt(a.reduce((x,y)=>x+(y-m)*(y-m),0)/(a.length-1));};
+const FILLERS=["um","uh","er","ah","you know","kind of","sort of","basically","literally","honestly","i mean"];
+function fillers(text){
+  const t=" "+text.toLowerCase().replace(/[^a-z' ]/g," ").replace(/\s+/g," ")+" ";
+  const out={};let n=0;
+  for(const f of FILLERS){const k=(t.match(new RegExp(" "+f+" ","g"))||[]).length;if(k){out[f]=k;n+=k;}}
+  return {n,out};
+}
+const QUESTION=/^(what|how|who|when|where|why|which|do|does|did|is|are|was|were|can|could|would|will|should|have|has|may|mind|any|anything|so what|so how|so do|so would)\b/i;
+function isQuestion(text){
+  const t=text.trim().toLowerCase();
+  if(/\?\s*$/.test(t))return true;
+  const parts=t.split(/[.!?]|\b(?:and|but|so)\b/).map(s=>s.trim()).filter(Boolean);
+  const last=parts[parts.length-1]||t;
+  return QUESTION.test(last)||/\b(would you|could you|do you|are you|is there|have you|can i|could i|would it|does that|is that)\b/.test(last);
+}
+function measure(frames,text,prospectEnd){
+  const words=text.split(/\s+/).filter(Boolean).length;
+  const v=frames.filter(f=>f.voiced);
+  const m={words,fillers:fillers(text),question:isQuestion(text),speakSec:null,wpm:null,pauses:0,longestPause:0,f0:null,pitchSd:null,ending:"unclear",trailDb:null,resp:null};
+  if(v.length<3)return m;
+  const t0=v[0].t,t1=v[v.length-1].t;
+  m.speakSec=Math.max(0.4,(t1-t0)/1000+0.03);
+  if(words>=3&&m.speakSec>=1.2)m.wpm=Math.round(words/(m.speakSec/60));
+  for(let i=1;i<v.length;i++){const g=v[i].t-v[i-1].t;if(g>=600){m.pauses++;m.longestPause=Math.max(m.longestPause,g/1000);}}
+  const fs=v.filter(x=>x.f0).map(x=>x.f0);
+  if(fs.length>=10){
+    m.f0=Math.round(med(fs));
+    const st=fs.map(x=>12*Math.log2(x/m.f0)).filter(x=>Math.abs(x)<=12);
+    const s=sd(st);m.pitchSd=s==null?null:Math.round(s*10)/10;
+  }
+  if(m.f0){
+    const endF=v.filter(x=>x.f0&&x.t>=t1-220).map(x=>12*Math.log2(x.f0/m.f0));
+    const preF=v.filter(x=>x.f0&&x.t<t1-220&&x.t>=t1-700).map(x=>12*Math.log2(x.f0/m.f0));
+    if(endF.length>=3&&preF.length>=3){
+      const dlt=med(endF)-med(preF);
+      m.ending=dlt>1.5?"rising":dlt<-1.5?"falling":"level";m.endDelta=Math.round(dlt*10)/10;
+    }
+  }
+  const all=med(v.map(x=>x.db)),tail=med(v.filter(x=>x.t>=t1-500).map(x=>x.db));
+  if(all!=null&&tail!=null)m.trailDb=Math.round((tail-all)*10)/10;
+  if(prospectEnd)m.resp=Math.round((t0-prospectEnd)/100)/10;
+  return m;
+}
+function summarize(turns){
+  const you=turns.filter(t=>t.role==="you"&&t.m);
+  const S={turns:you.length};
+  const paced=you.filter(t=>t.m.wpm&&t.m.words>=6);
+  S.wpm=paced.length?Math.round(med(paced.map(t=>t.m.wpm))):null;
+  const ps=you.map(t=>t.m.pitchSd).filter(x=>x!=null);
+  S.pitchSd=ps.length?Math.round(mean(ps)*10)/10:null;
+  const statements=you.filter(t=>!t.m.question&&t.m.ending!=="unclear");
+  S.statements=statements.length;S.risingStatements=statements.filter(t=>t.m.ending==="rising").length;
+  const tr=you.filter(t=>t.m.trailDb!=null);
+  S.trailTurns=tr.length;S.trailed=tr.filter(t=>t.m.trailDb<-6).length;
+  const rs=you.map(t=>t.m.resp).filter(x=>x!=null&&x>-2&&x<20);
+  S.resp=rs.length?Math.round(med(rs)*10)/10:null;
+  const yourSec=you.reduce((a,t)=>a+(t.m.speakSec||0),0);
+  const theirSec=turns.filter(t=>t.role==="prospect").reduce((a,t)=>a+(t.dur||t.text.split(/\s+/).length/2.7),0);
+  S.talkShare=yourSec+theirSec>0?Math.round(yourSec/(yourSec+theirSec)*100):null;
+  S.longest=you.length?Math.round(Math.max.apply(null,you.map(t=>t.m.speakSec||0))):null;
+  S.fillers=you.reduce((a,t)=>a+t.m.fillers.n,0);
+  S.fpm=yourSec>20?Math.round(S.fillers/(yourSec/60)*10)/10:null;
+  S.pauses=you.reduce((a,t)=>a+t.m.pauses,0);
+  S.minutes=Math.max(1,Math.round((performance.now()-V.callStart)/60000));
+  return S;
+}
+function judge(S){
+  const rows=[];
+  const r=(name,val,guide,read,cls)=>rows.push({name,val,guide,read,cls});
+  if(S.wpm!=null)r("Pace",S.wpm+" words/min","130 to 175",S.wpm<130?"Slow":S.wpm>175?"Fast. Can sound pushy on a first call":"Conversational",S.wpm<130||S.wpm>175?"warn":"ok");
+  else r("Pace","Not enough speech","130 to 175","Talk for a few sentences to measure","plain");
+  if(S.pitchSd!=null)r("Pitch movement",S.pitchSd+" semitones","about 2 to 4.5",S.pitchSd<2?"Flat. Can sound scripted or bored":S.pitchSd>4.5?"Very animated":"Natural and engaged",S.pitchSd<2?"warn":S.pitchSd>4.5?"plain":"ok");
+  else r("Pitch movement","Couldn't measure","about 2 to 4.5","Speak a little louder or closer to the mic","plain");
+  if(S.statements)r("Statements ending on an upswing",S.risingStatements+" of "+S.statements,"few",S.risingStatements/S.statements>0.4?"Often sounds unsure, like asking permission":"Mostly steady and sure",S.risingStatements/S.statements>0.4?"warn":"ok");
+  if(S.trailTurns)r("Turns that trailed off in volume",S.trailed+" of "+S.trailTurns,"few",S.trailed/S.trailTurns>0.4?"Often fades at the end, which sounds less sure":"Finishes strong",S.trailed/S.trailTurns>0.4?"warn":"ok");
+  if(S.resp!=null)r("Time before you answered",S.resp+" s (typical)","0.5 to 2",S.resp<0.4?"Jumping in fast. Let them finish":S.resp>2.5?"Long hesitations":"Natural",S.resp<0.4||S.resp>2.5?"warn":"ok");
+  if(S.talkShare!=null)r("Your share of the talking",S.talkShare+"%","under 55%",S.talkShare>60?"You did most of the talking":S.talkShare<35?"They did most of the talking":"Balanced",S.talkShare>60?"warn":"ok");
+  if(S.longest!=null)r("Your longest turn",S.longest+" s","under 30 s",S.longest>30?"Long stretch. Stop and ask a question sooner":"Short enough",S.longest>30?"warn":"ok");
+  r("Filler words heard",S.fillers+(S.fpm!=null?" ("+S.fpm+" per min)":""),"as few as possible",S.fpm!=null&&S.fpm>4?"Noticeable":"Fine. Speech recognition drops some ums and uhs",S.fpm!=null&&S.fpm>4?"warn":"plain");
+  return rows;
+}
+
+/* ---------- mic & meters ---------- */
+function ensureCtx(){
+  // made during the click, so the browser lets the audio run
+  const AC=window.AudioContext||window.webkitAudioContext;
+  if(!V.ctx||V.ctx.state==="closed")V.ctx=new AC();
+  try{V.ctx.resume();}catch(e){}
+}
+function micErr(e){
+  const n=e&&e.name;
+  return n==="NotAllowedError"?"The browser blocked the microphone. Click the microphone icon at the right end of the address bar, choose to always allow, then reload this page."
+    :n==="NotFoundError"?"No microphone found. Plug one in and try again.":"Couldn't turn on the microphone ("+(n||"unknown error")+").";
+}
+async function micOn(){
+  ensureCtx();
+  V.stream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true,autoGainControl:false}});
+  try{await V.ctx.resume();}catch(e){}
+  V.sr=V.ctx.sampleRate;
+  const src=V.ctx.createMediaStreamSource(V.stream);
+  V.an=V.ctx.createAnalyser();V.an.fftSize=V.sr>50000?4096:2048;src.connect(V.an);
+  V.buf=new Float32Array(V.an.fftSize);
+}
+function micOff(){
+  clearInterval(V.tick);V.tick=null;
+  try{V.stream&&V.stream.getTracks().forEach(t=>t.stop());}catch(e){}
+  try{V.ctx&&V.ctx.close();}catch(e){}
+  V.stream=null;V.ctx=null;V.an=null;try{$("#vol").style.width="0%";}catch(e){}
+}
+function level(){
+  V.an.getFloatTimeDomainData(V.buf);
+  let s=0;for(let i=0;i<V.buf.length;i++)s+=V.buf[i]*V.buf[i];
+  return 20*Math.log10(Math.sqrt(s/V.buf.length)+1e-9);
+}
+function calibrate(ms){
+  return new Promise(res=>{const vals=[];const t=setInterval(()=>{vals.push(level());},30);
+    setTimeout(()=>{clearInterval(t);vals.sort((a,b)=>a-b);const n=vals.length?vals[Math.floor(vals.length*0.8)]:-60;
+      V.noiseDb=n;V.speechDb=Math.min(-28,Math.max(-52,n+12));res();},ms);});
+}
+function startTicker(){
+  clearInterval(V.tick);
+  V.tick=setInterval(()=>{
+    if(!V.an)return;
+    const now=performance.now(),db=level(),voiced=db>V.speechDb;
+    let f0=null;
+    const live=V.state==="listening"&&!V.paused;
+    if(voiced&&live){const f=yin(V.buf,V.sr);if(f&&f>=70&&f<=400)f0=f;}
+    const pct=Math.max(0,Math.min(100,(db+60)/50*100));
+    const volEl=$("#vol");volEl.style.width=pct+"%";
+    if(V.state==="test"){const mv=$("#mt-vol");if(mv)mv.style.width=pct+"%";V.testMax=Math.max(V.testMax,db);}
+    if(live){
+      V.trace.push({t:now,f0});
+      V.frames.push({t:now,db,f0,voiced});
+      if(voiced){if(!V.heardVoice){V.heardVoice=true;V.firstVoice=now;}V.lastVoice=now;}
+      const text=(V.turnFinal+" "+V.interim).trim();
+      const quietSince=Math.max(V.lastVoice,V.lastTextAt);
+      if(text&&quietSince&&now-quietSince>V.waitMs)endTurn();
+      if(V.heardVoice&&!text&&now-V.firstVoice>2500&&!V.recErr)diag("I can hear sound from your microphone, but no words have come back from speech-to-text yet. If this keeps happening, end the call and use Test my microphone.");
+      if(V.heardVoice&&now-V.firstVoice>3000&&text){const w=text.split(/\s+/).length;$("#pace").textContent=Math.round(w/((V.lastVoice-V.firstVoice)/60000||1));}
+    }else V.trace.push({t:now,f0:null});
+    while(V.trace.length&&now-V.trace[0].t>6200)V.trace.shift();
+    drawTrace(now);
+  },30);
+}
+let COL=null;
+function colors(){const cs=getComputedStyle(document.documentElement);return {line:cs.getPropertyValue("--line").trim(),accent:cs.getPropertyValue("--accent").trim(),muted:cs.getPropertyValue("--muted").trim()};}
+function drawTrace(now){
+  const c=$("#pitch");if(!c||c.offsetParent===null)return;
+  const w=c.clientWidth,h=c.clientHeight,dpr=window.devicePixelRatio||1;
+  if(c.width!==Math.round(w*dpr)||c.height!==Math.round(h*dpr)){c.width=Math.round(w*dpr);c.height=Math.round(h*dpr);COL=colors();}
+  if(!COL)COL=colors();
+  const g=c.getContext("2d");g.setTransform(dpr,0,0,dpr,0,0);g.clearRect(0,0,w,h);
+  const lo=Math.log2(70),hi=Math.log2(400),y=f=>h-6-(Math.log2(f)-lo)/(hi-lo)*(h-12);
+  g.font="10px system-ui,sans-serif";g.lineWidth=1;
+  for(const f of [100,150,200,300]){const yy=Math.round(y(f))+0.5;g.strokeStyle=COL.line;g.beginPath();g.moveTo(34,yy);g.lineTo(w,yy);g.stroke();g.fillStyle=COL.muted;g.fillText(f+" Hz",0,yy+3);}
+  g.strokeStyle=COL.accent;g.lineWidth=2.5;g.lineJoin="round";g.lineCap="round";g.beginPath();
+  let prev=null;
+  for(const p of V.trace){
+    if(!p.f0){prev=null;continue;}
+    const x=34+(w-34)*(1-(now-p.t)/6000),yy=y(p.f0);
+    if(!prev||p.t-prev.t>90)g.moveTo(x,yy);else g.lineTo(x,yy);
+    prev=p;
+  }
+  g.stroke();
+}
+
+/* ---------- speech recognition ---------- */
+const recLang=/^en/i.test(navigator.language||"")?navigator.language:"en-US";
+function diag(t){const el=$("#diag");if(el&&el.textContent!==t)el.textContent=t;if(V.state==="test"){const m=$("#mt-rec");if(m)m.textContent=t;}}
+function words(x){return String(x||"").toLowerCase().replace(/[^a-z0-9' ]/g," ").split(/\s+/).filter(Boolean);}
+function isEcho(heard,spoken){const h=words(heard),sp=new Set(words(spoken));if(!h.length||!sp.size)return false;return h.filter(w=>sp.has(w)).length/h.length>=0.6;}
+function recStart(){
+  if(!SR||V.recOn)return;
+  const r=new SR();r.lang=recLang;r.continuous=true;r.interimResults=true;r.maxAlternatives=1;
+  V.finalUpto=0;
+  r.onstart=()=>{V.recErr="";diag("");};
+  r.onresult=e=>{
+    let interim="",fin="";
+    for(let i=e.resultIndex;i<e.results.length;i++){
+      const res=e.results[i];
+      if(res.isFinal){if(i>=V.finalUpto){fin+=" "+res[0].transcript;V.finalUpto=i+1;}}
+      else interim+=res[0].transcript;
+    }
+    fin=fin.trim();interim=interim.trim();
+    const heard=(fin+" "+interim).trim();
+    if(heard){V.heardWordsAt=performance.now();diag("");}
+    if(V.state==="test"){if(fin)V.testHeard=(V.testHeard+" "+fin).trim();$("#mt-heard").textContent=(V.testHeard+" "+interim).trim()||"…";return;}
+    if(V.paused||!heard)return;
+    if(V.state==="listening"){
+      if(fin)V.turnFinal=(V.turnFinal+" "+fin).trim();
+      V.interim=interim;V.lastTextAt=performance.now();showLive();
+    }else if(V.state==="prospect"){
+      if(isEcho(heard,V.lastProspect))return;
+      if(fin)V.carryFinal=(V.carryFinal+" "+fin).trim();
+      V.carryInterim=interim;
+      if(words(heard).length>=2)skipSpeech();
+    }else if(V.state==="thinking"&&V.turnEndedAt&&performance.now()-V.turnEndedAt<4000&&words(heard).length>=2&&!isEcho(heard,V.lastProspect)){
+      resumeTurn(fin,interim);
+    }
+  };
+  r.onerror=e=>{
+    V.recErr=e.error;
+    if(e.error==="no-speech"||e.error==="aborted"){V.recErr="";return;}
+    let t;
+    if(e.error==="not-allowed"||e.error==="service-not-allowed"){V.recBlocked=true;V.wantRec=false;
+      t="Speech-to-text was blocked by the browser. Click the microphone icon at the right end of the address bar, choose to always allow, then reload this page.";}
+    else if(e.error==="network")t="Speech-to-text couldn't reach its online service. Check your internet connection.";
+    else if(e.error==="audio-capture")t="Speech-to-text couldn't find a microphone. Check that your microphone is plugged in and selected in Windows sound settings.";
+    else t="Speech-to-text error: "+e.error+".";
+    diag(t);if(V.state!=="test"&&V.state!=="idle")callMsg(t,e.error==="network"?"warn":"bad");
+  };
+  r.onend=()=>{V.recOn=false;if(V.wantRec&&!V.recBlocked)setTimeout(()=>{if(V.wantRec&&!V.recOn)recStart();},200);};
+  V.rec=r;
+  try{r.start();V.recOn=true;}catch(e){diag("Speech-to-text couldn't start ("+((e&&e.message)||e)+").");}
+}
+function recStop(){V.wantRec=false;try{V.rec&&V.rec.abort();}catch(e){}V.recOn=false;}
+function skipSpeech(){try{speechSynthesis.cancel();}catch(e){}if(V.speakDone)V.speakDone();}
+function resumeTurn(fin,interim){
+  const last=V.turns[V.turns.length-1];
+  if(!last||last.role!=="you")return;
+  V.turnSeq++;if(V.ctl)V.ctl.abort();
+  V.turns.pop();
+  V.turnFinal=(last.text+" "+fin).trim();V.interim=interim;V.lastTextAt=performance.now();
+  setStatus("listening","Your turn. Go ahead.");renderLog();showLive();
+}
+
+/* ---------- voices ---------- */
+function voices(){return TTS?speechSynthesis.getVoices().filter(v=>/^en(-|_|$)/i.test(v.lang)):[];}
+function fillVoices(){
+  const vs=voices(),sel=$("#voice");
+  if(!vs.length){sel.innerHTML='<option value="">Text only (no voices found)</option>';return;}
+  const saved=store.get("vp-voice");
+  const pick=vs.find(v=>v.name===saved)||vs.find(v=>/natural/i.test(v.name)&&/en-US/i.test(v.lang))||vs.find(v=>/google us english/i.test(v.name))||vs.find(v=>/en-US/i.test(v.lang))||vs[0];
+  sel.innerHTML=vs.map(v=>'<option value="'+esc(v.name)+'"'+(v===pick?" selected":"")+'>'+esc(v.name.replace(/^Microsoft /,"").replace(/ - English.*$/,""))+' ('+esc(v.lang)+')</option>').join("");
+}
+function chosenVoice(){const n=$("#voice").value;return voices().find(v=>v.name===n)||null;}
+function speak(text){
+  return new Promise(res=>{
+    const voice=chosenVoice();
+    if(!TTS||!voice){res(0);return;}
+    const u=new SpeechSynthesisUtterance(text);u.voice=voice;u.lang=voice.lang;u.rate=1;u.pitch=1;
+    V.utter=u; // Chrome loses the end event of an utterance nothing refers to
+    let t0=0,finished=false;
+    const done=()=>{if(finished)return;finished=true;clearTimeout(guard);if(V.utter===u)V.utter=null;V.speakDone=null;res(t0?(performance.now()-t0)/1000:0);};
+    V.speakDone=done;
+    u.onstart=()=>{t0=performance.now();};u.onend=done;u.onerror=done;
+    const guard=setTimeout(()=>{try{speechSynthesis.cancel();}catch(e){}done();},3000+words(text).length*450);
+    try{speechSynthesis.cancel();speechSynthesis.resume();speechSynthesis.speak(u);}catch(e){done();}
+  });
+}
+
+/* ---------- Claude ---------- */
+async function claude(model,system,messages,max,signal){
+  const key=store.get("vp-key");
+  let res;
+  try{
+    res=await fetch("https://api.anthropic.com/v1/messages",{method:"POST",signal,
+      headers:{"content-type":"application/json","x-api-key":key,"anthropic-version":"2023-06-01","anthropic-dangerous-direct-browser-access":"true"},
+      body:JSON.stringify({model,max_tokens:max,system,messages})});
+  }catch(e){if(e&&e.name==="AbortError")throw {code:"cancelled"};throw {code:"network"};}
+  if(!res.ok){let msg="";try{const j=await res.json();msg=(j.error&&j.error.message)||"";}catch(e){}throw {code:"http",status:res.status,msg};}
+  let j;
+  try{j=await res.json();}catch(e){if(e&&e.name==="AbortError")throw {code:"cancelled"};throw {code:"network"};}
+  const text=(j.content||[]).filter(b=>b.type==="text").map(b=>b.text).join("").trim();
+  if(!text)throw {code:"empty"};
+  return text;
+}
+function errCopy(e){
+  if(!e)return "Something went wrong. Try again.";
+  if(e.code==="network")return "Couldn't reach Claude. Check your internet connection and try again.";
+  if(e.code==="empty")return "Claude sent back an empty reply. Try again.";
+  if(e.code==="http"){
+    if(e.status===401||e.status===403)return "Claude didn't accept your API key. Use Change key to paste a new one.";
+    if(/credit|billing|balance/i.test(e.msg))return "Your Claude API account is out of credit. Add credit on the Billing page at platform.claude.com, then try again.";
+    if(e.status===429)return "Too many requests at once, or your spend limit was reached. Wait a moment and try again.";
+    if(e.status===404)return "That Claude model isn't available on your account ("+(e.msg||"not found")+").";
+    if(e.status>=500)return "Claude is busy right now. Try again in a moment.";
+    return "Claude returned an error: "+(e.msg||e.status);
+  }
+  return "Something went wrong. Try again.";
+}
+function deliveryNote(m){
+  if(!m||!m.speakSec)return "";
+  const n=[];
+  if(m.wpm!=null&&m.words>=6){if(m.wpm>185)n.push("talking fast, sounds rushed");else if(m.wpm<120)n.push("slow and halting");}
+  if(m.pitchSd!=null){if(m.pitchSd<1.5)n.push("flat, monotone voice");else if(m.pitchSd>5)n.push("very animated voice");}
+  if(!m.question){if(m.ending==="rising")n.push("ended going up, sounding unsure, like asking permission");else if(m.ending==="falling")n.push("ended firmly");}
+  if(m.trailDb!=null&&m.trailDb<-6)n.push("voice faded at the end");
+  if(m.resp!=null&&m.resp>3)n.push("long hesitation before answering");
+  if(m.pauses>=3)n.push("lots of pauses");
+  if(m.fillers&&m.fillers.n>=3)n.push("several filler words");
+  if(m.speakSec>30)n.push("a long monologue");
+  const solid=n.length===1&&n[0]==="ended firmly";
+  return "\n[Delivery: "+(n.length&&!solid?n.join("; "):"steady, natural pace and tone"+(solid?", ended firmly":""))+"]";
+}
+function prospectMessages(){
+  const msgs=[{role:"user",content:"(The conversation starts now. "+OPENING[modeOf(V.meta)]+")"}];
+  for(const t of V.turns){
+    const role=t.role==="you"?"user":"assistant";
+    const content=t.role==="you"?t.text+deliveryNote(t.m):t.text;
+    const last=msgs[msgs.length-1];
+    if(last.role===role)last.content+="\n"+content;else msgs.push({role,content});
+  }
+  return msgs;
+}
+window.__note=deliveryNote;
+
+/* ---------- call flow ---------- */
+function setStatus(s,text){V.state=s;const el=$("#status");el.dataset.s=V.paused&&s==="listening"?"paused":s;$("#status-text").textContent=text;
+  $("#done").disabled=s!=="listening";$("#skip").disabled=s!=="prospect";}
+function callMsg(text,kind,retry){
+  $("#call-msg").innerHTML=text?'<div class="notice notice--'+(kind||"warn")+'"><span>'+esc(text)+'</span>'+(retry?'<button class="btn btn--quiet" type="button" id="retry">Try again</button>':"")+'</div>':"";
+  if(retry)$("#retry").onclick=()=>{callMsg("");retry();};
+}
+function renderLog(){
+  const html=V.turns.map(t=>t.role==="you"
+    ?'<li class="say say--you"><span class="eyebrow">You</span><p>'+esc(t.text)+'</p>'+(t.m&&t.m.wpm?'<small>'+t.m.wpm+' wpm'+(t.m.ending!=="unclear"?' · ended '+t.m.ending:"")+'</small>':"")+'</li>'
+    :'<li class="say say--them"><span class="eyebrow">Prospect</span><p>'+esc(t.text)+'</p></li>').join("");
+  $("#log").innerHTML=html+(V.state==="listening"?'<li class="say say--you say--live" id="live"><span class="eyebrow">You</span><p>Listening…</p></li>':"")+
+    (V.state==="thinking"?'<li class="say say--them say--live"><span class="eyebrow">Prospect</span><p>…</p></li>':"");
+  const l=$("#log");l.scrollTop=l.scrollHeight;
+}
+function showLive(){const el=$("#live p");if(el){const t=(V.turnFinal+" "+V.interim).trim();el.textContent=t||"Listening…";const l=$("#log");l.scrollTop=l.scrollHeight;}}
+async function prospectTurn(){
+  const sid=V.sid,seq=V.turnSeq;
+  setStatus("thinking","Prospect is thinking");renderLog();
+  V.ctl=new AbortController();
+  let text;
+  try{text=await claude(PROSPECT_MODEL,systemPrompt(V.meta),prospectMessages(),220,V.ctl.signal);}
+  catch(e){if(sid!==V.sid||seq!==V.turnSeq||e.code==="cancelled")return;setStatus("error","Waiting for you");renderLog();callMsg(errCopy(e),"bad",prospectTurn);return;}
+  if(sid!==V.sid||seq!==V.turnSeq)return;
+  const turn={role:"prospect",text};V.turns.push(turn);
+  V.lastProspect=text;V.carryFinal="";V.carryInterim="";
+  setStatus("prospect","Prospect is talking");renderLog();
+  turn.dur=await speak(text);
+  if(sid!==V.sid||seq!==V.turnSeq)return;
+  if(/\b(goodbye|bye now|bye-bye|have a good (day|one))\b/i.test(text)&&V.turns.filter(t=>t.role==="you").length>1)toast("Sounds like the conversation is wrapping up. End it when you're ready.");
+  listen();
+}
+function listen(){
+  V.turnFinal=V.carryFinal||"";V.interim=V.carryInterim||"";V.carryFinal="";V.carryInterim="";
+  V.frames=[];V.heardVoice=false;V.lastVoice=0;V.firstVoice=0;V.lastTextAt=(V.turnFinal||V.interim)?performance.now():0;
+  V.prospectEnd=performance.now();$("#pace").textContent="–";
+  setStatus("listening",V.paused?"Mic paused":"Your turn. Go ahead.");renderLog();showLive();
+}
+function endTurn(){
+  if(V.state!=="listening")return;
+  const text=(V.turnFinal+" "+V.interim).trim();
+  if(!text){toast("I didn't catch anything yet. Say your line, then pause.");return;}
+  const m=measure(V.frames,text,V.prospectEnd);
+  V.turns.push({role:"you",text,m});
+  V.state="thinking";V.turnEndedAt=performance.now();
+  prospectTurn();
+}
+async function startCall(again){
+  if(!store.get("vp-key")){showKey(true);toast("Paste your API key first.");return;}
+  if(!again)V.meta={mode:$("#mode").value,sc:$("#scen").value,lv:$("#level").value,ctx:$("#ctx").value.trim().slice(0,2000)};
+  store.set("vp-setup",JSON.stringify(Object.assign({wait:$("#wait").value},V.meta)));
+  store.set("vp-voice",$("#voice").value);
+  V.waitMs=+$("#wait").value||1800;
+  ensureCtx();
+  V.sid++;V.turns=[];V.paused=false;V.recBlocked=false;V.recErr="";V.carryFinal="";V.carryInterim="";V.turnEndedAt=0;diag("");$("#pause").textContent="Pause mic";
+  $("#v-setup").hidden=true;$("#v-key").hidden=true;$("#v-report").hidden=true;$("#v-call").hidden=false;callMsg("");
+  setStatus("thinking","Turning on your microphone");renderLog();
+  try{await micOn();}
+  catch(e){
+    callMsg(micErr(e),"bad");
+    $("#call-msg .notice").insertAdjacentHTML("beforeend",'<button class="btn btn--quiet" type="button" id="back">Back</button>');
+    $("#back").onclick=()=>{$("#v-call").hidden=true;$("#v-setup").hidden=false;};
+    return;
+  }
+  setStatus("thinking","Checking the room. Stay quiet for a second");
+  await calibrate(1200);
+  V.callStart=performance.now();V.trace=[];
+  startTicker();
+  V.wantRec=true;recStart();
+  clockTick();
+  prospectTurn();
+}
+let clockT;
+function clockTick(){clearInterval(clockT);clockT=setInterval(()=>{const s=Math.floor((performance.now()-V.callStart)/1000);$("#clock").textContent=Math.floor(s/60)+":"+String(s%60).padStart(2,"0");},500);}
+async function endCall(){
+  if(V.state==="listening"){const t=(V.turnFinal+" "+V.interim).trim();if(t)V.turns.push({role:"you",text:t,m:measure(V.frames,t,V.prospectEnd)});}
+  V.sid++;if(V.ctl)V.ctl.abort();
+  try{speechSynthesis.cancel();}catch(e){}
+  recStop();micOff();clearInterval(clockT);
+  V.state="ended";
+  $("#v-call").hidden=true;$("#v-report").hidden=false;window.scrollTo(0,0);
+  const S=summarize(V.turns);
+  $("#rep-sub").textContent=MODE[modeOf(V.meta)]+" · "+sc(V.meta.sc,V.meta.mode)[0]+" · "+LEVEL[V.meta.lv][0]+" · "+S.minutes+" min";
+  renderStats(S);renderTurns();
+  if(S.turns){saveHistory(S);}
+  renderHistory();
+  await coach(S);
+}
+function renderStats(S){
+  const rows=judge(S);
+  $("#stats").innerHTML='<thead><tr><th>What we measured</th><th class="num">You</th><th class="num">Rule of thumb</th><th>Read</th></tr></thead><tbody>'+
+    rows.map(r=>'<tr><td>'+esc(r.name)+'</td><td class="num">'+esc(r.val)+'</td><td class="num muted">'+esc(r.guide)+'</td><td><span class="pill pill--'+r.cls+'">'+esc(r.read)+'</span></td></tr>').join("")+'</tbody>';
+}
+function renderTurns(){
+  $("#turns").innerHTML='<thead><tr><th>Who</th><th>What was said</th><th class="num">Pace</th><th class="num">Pitch move</th><th>Ending</th></tr></thead><tbody>'+
+    V.turns.map(t=>'<tr><td>'+(t.role==="you"?"You":"Prospect")+'</td><td>'+esc(t.text)+'</td><td class="num">'+(t.m&&t.m.wpm?t.m.wpm:"")+'</td><td class="num">'+(t.m&&t.m.pitchSd!=null?t.m.pitchSd:"")+'</td><td>'+(t.m?esc(t.m.ending+(t.m.question?" (question)":"")):"")+'</td></tr>').join("")+'</tbody>';
+}
+function saveHistory(S){
+  let h=[];try{h=JSON.parse(store.get("vp-history")||"[]")||[];}catch(e){}
+  h.unshift({at:new Date().toISOString(),mode:modeOf(V.meta),sc:V.meta.sc,lv:V.meta.lv,wpm:S.wpm,pitchSd:S.pitchSd,rising:S.statements?S.risingStatements+"/"+S.statements:"",talk:S.talkShare,turns:S.turns});
+  store.set("vp-history",JSON.stringify(h.slice(0,20)));
+}
+function renderHistory(){
+  let h=[];try{h=JSON.parse(store.get("vp-history")||"[]")||[];}catch(e){}
+  $("#hist-wrap").hidden=h.length<2;
+  $("#hist").innerHTML='<thead><tr><th>When</th><th>Situation</th><th class="num">Pace</th><th class="num">Pitch move</th><th class="num">Upswing endings</th><th class="num">Your talk share</th></tr></thead><tbody>'+
+    h.map(x=>'<tr><td>'+esc(new Date(x.at).toLocaleString("en-US",{month:"short",day:"numeric",hour:"numeric",minute:"2-digit"}))+'</td><td>'+esc(MODE[modeOf(x)]+" · "+sc(x.sc,x.mode)[0])+'</td><td class="num">'+(x.wpm==null?"":x.wpm)+'</td><td class="num">'+(x.pitchSd==null?"":x.pitchSd)+'</td><td class="num">'+esc(x.rising||"")+'</td><td class="num">'+(x.talk==null?"":x.talk+"%")+'</td></tr>').join("")+'</tbody>';
+}
+const fmtCoach=t=>esc(String(t).replace(/\*\*/g,"").replace(/^#+\s*/gm,"")).replace(/^(RESULT|WHAT WORKED|WHAT TO CHANGE|HOW YOU SOUNDED|TRY NEXT ROUND):?[ \t]*/gm,'<b class="lab">$1</b>');
+async function coach(S){
+  const you=V.turns.filter(t=>t.role==="you");
+  $("#coach-msg").innerHTML="";
+  if(!you.length){$("#coach").textContent="There's nothing to coach yet. Say at least one line before ending the call.";return;}
+  $("#coach").innerHTML='<span class="muted">Reading your call. This can take up to a minute.</span>';
+  const sid=V.sid;
+  const lines=V.turns.map(t=>t.role==="you"
+    ?"Advisor: "+t.text+(t.m?"  [pace "+(t.m.wpm||"n/a")+" wpm; pitch movement "+(t.m.pitchSd!=null?t.m.pitchSd+" semitones":"n/a")+"; ending "+t.m.ending+(t.m.question?" (looks like a question)":"")+"; volume at end "+(t.m.trailDb!=null?t.m.trailDb+" dB vs the turn":"n/a")+"; answered after "+(t.m.resp!=null?t.m.resp+" s":"n/a")+"]":"")
+    :"Prospect: "+t.text).join("\n");
+  const rows=judge(S).map(r=>"- "+r.name+": "+r.val+" (rule of thumb "+r.guide+") → "+r.read).join("\n");
+  const prompt="Setting: "+MODE[modeOf(V.meta)]+". "+MODE_COACH[modeOf(V.meta)]+"\nSituation: "+sc(V.meta.sc,V.meta.mode)[0]+". "+sc(V.meta.sc,V.meta.mode)[1]+"\nDifficulty: "+LEVEL[V.meta.lv][0]+"\n"+(V.meta.ctx?"Context the advisor gave: "+V.meta.ctx+"\n":"")+
+    "\nTranscript (the advisor's words come from speech recognition, so ignore missing punctuation and obvious mishearings):\n"+lines+
+    "\n\nDelivery measured from the advisor's microphone:\n"+rows+
+    "\n\nGive feedback in plain text with no markdown symbols, in exactly this shape:\n"+
+    "RESULT: one sentence on how it went and whether the advisor earned the next step.\n"+
+    "WHAT WORKED: two short points, each quoting a line the advisor said.\n"+
+    "WHAT TO CHANGE: two or three short points. For each, quote the advisor's line, say what it cost them, and give a better line to say instead.\n"+
+    "HOW YOU SOUNDED: two or three short points on delivery, each tied to a measurement above and to a specific turn where it showed. Say what to do differently out loud.\n"+
+    "TRY NEXT ROUND: one specific thing to practice, covering words or delivery.";
+  const system="You are a sales coach for a benefits advisor who sells voluntary employee benefits to small businesses and is about five months into the job. The advisor just finished a spoken practice conversation with an AI playing the prospect. Be direct and specific, and speak to the advisor as \"you\". Coach the opening, questions, listening, handling objections and asking for the meeting, and coach delivery using the measurements given. The delivery numbers are rough measurements from a computer microphone: use them as evidence, cite them, and never claim anything about how the advisor sounded that the numbers and words do not support. Useful readings: statements ending on an upswing can sound unsure, flat pitch can sound scripted or bored, a fast pace can sound pushy, volume that fades at the end of turns can sound unsure, and answering very fast can feel like interrupting. If the call was very short, say so and coach what is there. Do not state facts about insurance products, prices, tax rules or compliance. If the advisor made a product, price or tax claim, tell them to confirm that wording with their company instead of judging whether it is right.";
+  V.ctl=new AbortController();
+  try{
+    const text=await claude(COACH_MODEL,system,[{role:"user",content:prompt}],1400,V.ctl.signal);
+    if(sid!==V.sid)return;
+    $("#coach").innerHTML=fmtCoach(text);
+  }catch(e){
+    if(sid!==V.sid||e.code==="cancelled")return;
+    $("#coach").textContent="";
+    $("#coach-msg").innerHTML='<div class="notice notice--bad" style="margin:0 16px 16px"><span>'+esc(errCopy(e))+'</span><button class="btn btn--quiet" type="button" id="coach-retry">Try again</button></div>';
+    $("#coach-retry").onclick=()=>coach(S);
+  }
+}
+
+/* ---------- microphone test ---------- */
+async function micTest(){
+  const btn=$("#mic-test-btn");if(V.state!=="idle"&&V.state!=="ended")return;
+  ensureCtx();
+  $("#mic-test").hidden=false;$("#mt-heard").textContent="…";$("#mt-rec").textContent="";
+  $("#mt-result").textContent="Say something like \"testing, one, two, three\" until the countdown ends.";
+  V.testHeard="";V.testMax=-100;V.recErr="";V.recBlocked=false;btn.disabled=true;
+  try{await micOn();}catch(e){$("#mt-result").textContent=micErr(e);btn.disabled=false;return;}
+  V.state="test";V.speechDb=-45;startTicker();V.wantRec=true;recStart();
+  let left=8;btn.textContent="Listening… "+left;
+  const iv=setInterval(()=>{left--;btn.textContent="Listening… "+Math.max(0,left);},1000);
+  await new Promise(r=>setTimeout(r,8000));clearInterval(iv);
+  const heard=($("#mt-heard").textContent||"").replace("…","").trim();
+  recStop();micOff();V.state="idle";btn.disabled=false;btn.textContent="Test my microphone";
+  $("#mt-rec").textContent="";
+  $("#mt-result").textContent=heard?"Working. Speech-to-text heard you, so you're ready for a call."
+    :V.recBlocked?"Speech-to-text was blocked by the browser. Click the microphone icon at the right end of the address bar, choose to always allow, reload this page, and test again."
+    :V.testMax<-55?"No sound reached the app. In Windows, open Settings, then System, then Sound, and check that the microphone you're talking into is selected under Input. Then test again."
+    :"Your microphone works, but speech-to-text didn't send back any words"+(V.recErr?" (error: "+V.recErr+")":"")+". Try opening this file in Microsoft Edge if you're in Chrome, or in Chrome if you're in Edge, then test again.";
+}
+
+/* ---------- setup screen ---------- */
+function showKey(on){
+  $("#v-key").hidden=!on;$("#key-cancel").hidden=!store.get("vp-key");
+  if(on){$("#key-in").value="";$("#key-in").focus();}
+  keyStatus();
+}
+function keyStatus(){
+  const k=store.get("vp-key");
+  $("#key-status").textContent=k?"Claude API key saved, ending in "+k.slice(-4)+".":"No API key saved yet.";
+  $("#key-change").textContent=k?"Change key":"Add key";
+  $("#start").disabled=!k||!SR;
+}
+function init(){
+  const labelScen=()=>{const keep=$("#scen").value;$("#scen").innerHTML=Object.keys(SCEN).map(k=>'<option value="'+k+'">'+esc(sc(k,$("#mode").value)[0])+'</option>').join("");if(keep)$("#scen").value=keep;};
+  labelScen();$("#mode").onchange=labelScen;
+  $("#level").innerHTML=Object.keys(LEVEL).map(k=>'<option value="'+k+'">'+LEVEL[k][0]+'</option>').join("");
+  $("#level").value="real";
+  try{const s=JSON.parse(store.get("vp-setup")||"null");if(s){if(s.mode==="phone"||s.mode==="person"){$("#mode").value=s.mode;labelScen();}if(SCEN[s.sc])$("#scen").value=s.sc;if(LEVEL[s.lv])$("#level").value=s.lv;if(s.ctx)$("#ctx").value=s.ctx;if(s.wait)$("#wait").value=s.wait;}}catch(e){}
+  const problems=[];
+  if(!SR)problems.push("This browser can't turn speech into text. Open this file in Google Chrome or Microsoft Edge.");
+  if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia)problems.push("This browser can't use the microphone from this file. Open it in Google Chrome or Microsoft Edge.");
+  if(problems.length){$("#browser-msg").hidden=false;$("#browser-msg").textContent=problems.join(" ");}
+  if(TTS){fillVoices();speechSynthesis.onvoiceschanged=fillVoices;}else $("#voice").innerHTML='<option value="">Text only</option>';
+  showKey(!store.get("vp-key"));
+  $("#key-save").onclick=()=>{
+    const v=$("#key-in").value.trim();
+    if(!v){toast("Paste the key first.");return;}
+    if(!/^sk-ant-/.test(v))toast("That doesn't look like a Claude key. It should start with sk-ant-. Saved anyway.");
+    store.set("vp-key",v);showKey(false);if(/^sk-ant-/.test(v))toast("Key saved");
+  };
+  $("#key-cancel").onclick=()=>showKey(false);
+  $("#key-change").onclick=()=>showKey(true);
+  $("#test-voice").onclick=()=>{speak("Hi, this is how I'll sound on your practice calls.");};
+  $("#start").onclick=()=>startCall(false);
+  $("#again").onclick=()=>startCall(true);
+  $("#new").onclick=()=>{$("#v-report").hidden=true;$("#v-setup").hidden=false;keyStatus();};
+  $("#done").onclick=endTurn;
+  $("#skip").onclick=skipSpeech;
+  $("#mic-test-btn").onclick=micTest;
+  $("#pause").onclick=()=>{V.paused=!V.paused;$("#pause").textContent=V.paused?"Resume mic":"Pause mic";if(V.state==="listening")setStatus("listening",V.paused?"Mic paused":"Your turn. Go ahead.");};
+  $("#end").onclick=endCall;
+  document.addEventListener("keydown",e=>{
+    if($("#v-call").hidden)return;
+    const tag=(e.target&&e.target.tagName)||"";
+    if(/INPUT|TEXTAREA|SELECT/.test(tag))return;
+    if(e.code==="Space"){e.preventDefault();if(V.state==="listening")endTurn();}
+    else if(e.key==="Escape")skipSpeech();
+  });
+}
+init();
+window.__V=V;window.__measure=measure;window.__summarize=summarize;
+})();
+</script>
+</body>
+</html>

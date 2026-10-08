@@ -258,8 +258,16 @@ const sc=(k,mode)=>(SCEN[k]||SCEN.cold)[mode==="phone"?"phone":"person"];
 const modeOf=m=>(m&&m.mode==="phone")?"phone":"person";
 const MODE_RULE={person:"- This is face to face. You can only be heard, not seen, so never describe actions or surroundings. Act like someone interrupted at work: you might be helping a customer or an employee, ask for a card, ask them to come back another time, or say the owner is not in.",
  phone:"- This is a phone call. Act like someone interrupted at work: you might be busy, want to get off the phone quickly, or ask them to just send an email."};
-const OPENING={person:"Say your first line, the way this person would greet someone who just walked in, or, for a scheduled meeting or coffee, greet the advisor as you sit down.",
- phone:"Say your first line, the way this person would answer the phone at work, or, for a scheduled call, greet the advisor."};
+const UNANNOUNCED=["cold","warm","gate","intro"];
+function opening(m){
+  const unannounced=UNANNOUNCED.indexOf(m&&m.sc)>=0;
+  if(modeOf(m)==="phone")return unannounced
+    ?"Answer the phone the way a business does: the business name, then a plain \"how can I help you?\" For example: \"Ortega Auto, how can I help you?\" One short line. Don't guess who is calling or why, and say nothing else."
+    :"Greet the advisor in one short line, the way you would when a scheduled call starts. Then stop.";
+  return unannounced
+    ?"Someone has just walked in and you don't know who they are yet. Say the simple greeting people at a counter or front desk give, such as \"Hi, how can I help you?\", \"Hey there, what can I do for you?\" or \"Hi, can I help you with something?\" One short line. Don't give your name, don't guess why they're here, and say nothing else."
+    :"Greet the advisor in one short line, the way you would as you sit down for a scheduled meeting or coffee. Then stop.";
+}
 const MODE_COACH={person:"This was an in-person conversation. Also coach on giving a clear reason for the visit early, respecting that the person is in the middle of work, and leaving with a scheduled next step rather than only dropping off a card. Body language could not be observed, so do not comment on it.",
  phone:"This was a phone call. Also coach on earning the first 30 seconds, respecting their time, and ending with a scheduled next step."};
 const LEVEL={
@@ -608,7 +616,7 @@ function deliveryNote(m){
   return "\n[Delivery: "+(n.length&&!solid?n.join("; "):"steady, natural pace and tone"+(solid?", ended firmly":""))+"]";
 }
 function prospectMessages(){
-  const msgs=[{role:"user",content:"(The conversation starts now. "+OPENING[modeOf(V.meta)]+")"}];
+  const msgs=[{role:"user",content:"(The conversation starts now. "+opening(V.meta)+")"}];
   for(const t of V.turns){
     const role=t.role==="you"?"user":"assistant";
     const content=t.role==="you"?t.text+deliveryNote(t.m):t.text;

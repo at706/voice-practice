@@ -9,8 +9,9 @@
 /* Companion to the Warm Lead Command Center: same tokens. One column: setup, then a live call
    screen with meters above the transcript, then a delivery report. */
 :root{
-  --bg:#F2F3F8; --surface:#FFFFFF; --sunk:#E9EBF3; --line:#D5D9E6; --ink:#171A2B; --muted:#596080;
-  --accent:#33407F; --accent-ink:#FFFFFF; --accent-soft:#E3E6F5;
+  --bg:#F1F6FA; --surface:#FFFFFF; --sunk:#E4EEF6; --line:#CFDEEA; --ink:#0B2338; --muted:#4A6177;
+  --accent:#0068A7; --accent-ink:#FFFFFF; --accent-soft:#DCEEF9;
+  --bar:#054C86; --bar-ink:#FFFFFF; --bar-muted:#BFE3F7; --brand:#00A5E6; --brand-orange:#F88C00;
   --late:#A93226; --late-soft:#F8E2DF; --due:#7C5005; --due-soft:#F6EAD0; --ok:#1C6746; --ok-soft:#DCEFE5;
   --display:"Bricolage Grotesque","Segoe UI",system-ui,sans-serif;
   --body:"Atkinson Hyperlegible","Segoe UI",system-ui,-apple-system,sans-serif;
@@ -18,8 +19,9 @@
 }
 @media (prefers-color-scheme: dark){
   :root{
-    --bg:#12141F; --surface:#1B1E2D; --sunk:#242839; --line:#343A52; --ink:#ECEEF7; --muted:#A3AAC6;
-    --accent:#AAB5F6; --accent-ink:#12141F; --accent-soft:#2A3053;
+    --bg:#0A1620; --surface:#11212F; --sunk:#182B3C; --line:#25405A; --ink:#E7F1F8; --muted:#9BB3C7;
+    --accent:#4CC4F2; --accent-ink:#04203A; --accent-soft:#123A57;
+    --bar:#062E50; --bar-ink:#FFFFFF; --bar-muted:#A9D8F2; --brand:#00A5E6; --brand-orange:#F88C00;
     --late:#F3A093; --late-soft:#45221D; --due:#EBC272; --due-soft:#3E3114; --ok:#84D4AC; --ok-soft:#183628;
     color-scheme:dark;
   }
@@ -36,6 +38,10 @@ button,input,select,textarea{font:inherit;color:inherit}
 .top{padding-block:18px 14px;border-bottom:1px solid var(--line);display:flex;align-items:baseline;gap:12px;flex-wrap:wrap}
 .top h1{font-family:var(--display);font-weight:700;font-size:1.5rem;letter-spacing:-.01em}
 .top p{color:var(--muted);font-size:.95rem}
+/* brand bar: deep blue band across the full width with an orange rule */
+.top{background:var(--bar);color:var(--bar-ink);border-bottom:0;box-shadow:0 0 0 100vmax var(--bar);clip-path:inset(0 -100vmax);padding-block:18px 16px}
+.top p{color:var(--bar-muted)}
+.top h1::after{content:"";display:block;width:44px;height:3px;background:var(--brand-orange);border-radius:2px;margin-top:6px}
 .block{background:var(--surface);border:1px solid var(--line);border-radius:var(--r)}
 .eyebrow{font-size:.75rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);font-weight:700}
 .muted{color:var(--muted)}

@@ -246,8 +246,8 @@ const SCEN={
   phone:["First call after an introduction","An owner you know and trust introduced the advisor to you by text a few days ago. This is your first conversation with the advisor, by phone."]},
  meeting:{person:["15-minute benefits check","You agreed to a 15-minute benefits check at your business, and the advisor has just sat down with you. You are willing to listen and have made no commitment."],
   phone:["15-minute benefits check","You agreed to a 15-minute benefits check by phone and it is starting now. You are willing to listen and have made no commitment."]},
- gate:{person:["Getting past the front desk","You are the office manager or receptionist at the front desk. The advisor has walked in and wants to see the owner, who is busy. You screen visitors."],
-  phone:["Getting past the front desk","You are the office manager. You answer the phone and screen calls for the owner, who is busy."]},
+ gate:{person:["Getting past the front desk","The advisor has walked in unannounced and wants to see the owner. The owner is on site but busy, and the person at the front desk screens visitors."],
+  phone:["Getting past the front desk","The advisor is calling unannounced and wants to speak with the owner. The owner is on site but busy, and the office manager who answers screens calls."]},
  ask:{person:["Asking a client for introductions","You are an existing client. The advisor enrolled your employees a few months ago and is visiting today. You are happy with the service. If asked for introductions you hesitate a little, as most people do, before thinking of names."],
   phone:["Asking a client for introductions","You are an existing client. The advisor enrolled your employees a few months ago and is calling to check in. You are happy with the service. If asked for introductions you hesitate a little, as most people do, before thinking of names."]},
  partner:{person:["Coffee with a referral partner","You serve small businesses as a broker, payroll rep or accountant, and you share a client with the advisor. The advisor asked you for coffee and you are sitting down together now. You are polite, and you wonder what is in it for you and whether the advisor would step on your business."],
@@ -256,8 +256,22 @@ const SCEN={
 const MODE={person:"In person",phone:"Phone call"};
 const sc=(k,mode)=>(SCEN[k]||SCEN.cold)[mode==="phone"?"phone":"person"];
 const modeOf=m=>(m&&m.mode==="phone")?"phone":"person";
-const MODE_RULE={person:"- This is face to face. You can only be heard, not seen, so never describe actions or surroundings. Act like someone interrupted at work: you might be helping a customer or an employee, ask for a card, ask them to come back another time, or say the owner is not in.",
+const MODE_RULE={person:"- This is face to face. You can only be heard, not seen, so never describe actions or surroundings. Act like someone interrupted at work: you might be in the middle of something, ask what this is about, ask for a card, or ask them to come back at a better time. Asking them to come back is an objection the advisor can work with, for example by setting a specific time, not a way to end the practice.",
  phone:"- This is a phone call. Act like someone interrupted at work: you might be busy, want to get off the phone quickly, or ask them to just send an email."};
+/* sometimes someone else answers first and the owner has to be earned; never unreachable */
+const DESK_SCEN=["cold","warm","intro"],DESK_ODDS={easy:0.2,real:0.35,tough:0.5};
+const rollDesk=m=>m.sc==="gate"||(DESK_SCEN.indexOf(m.sc)>=0&&Math.random()<(DESK_ODDS[m.lv]||0.35));
+const DESK_LEVEL={
+ easy:"Be friendly. Once the advisor says who they are and why they're here, go get the owner.",
+ real:"Ask what it's about and who they're with, and offer once to take a card or a message. When the advisor gives a clear, polite reason and asks to see the owner, go get the owner.",
+ tough:"Protect the owner's time. Say the owner is busy and push for a card or a message. Go get the owner when the advisor stays polite, keeps it brief, gives a specific reason worth the owner's time, and asks again. If they are pushy or vague, hold them off a little longer."
+};
+const OWNER_MARK=/\bOWNER\s*:\s*/i;
+function deskRule(m){
+  const phone=modeOf(m)==="phone";
+  return "Who answers first: not the owner. You start as "+(phone?"the employee who answers the phone":"the employee at the counter or front desk")+", someone with a first name you invent. \"Who you are\" below describes the owner, not this employee. The owner is on site, just busy"+(phone?" or on another line":" in the back or with a customer")+". Screen the advisor the way a real employee does. "+DESK_LEVEL[m.lv]+" Never say the owner is out, off today or gone, and if the advisor stays polite and keeps trying for three or four turns, go get the owner even if they haven't said it perfectly.\n"+
+    "When you go get the owner, say one short line as the employee (for example \""+(phone?"Hang on, let me see if he can pick up.":"Hang on, let me grab her.")+"\"), then write OWNER: and continue as the owner, who greets the advisor in one short line. Write OWNER: exactly once, only at that moment, and never label any other line. From then on you are the owner for the rest of the conversation.";
+}
 const UNANNOUNCED=["cold","warm","gate","intro"];
 function opening(m){
   const unannounced=UNANNOUNCED.indexOf(m&&m.sc)>=0;
@@ -279,7 +293,8 @@ function systemPrompt(m){
   return "This is a spoken sales practice session for a benefits advisor who sells voluntary (supplemental) employee benefits to small businesses. You play the other person in the conversation. The user is the advisor. Never write the advisor's lines.\n\n"+
   "Setting: "+MODE[modeOf(m)]+"\n\n"+
   "Situation: "+sc(m.sc,m.mode)[1]+"\n\n"+
-  "Who you are: "+(m.ctx||"Not given. Invent a believable person for this situation with a name, a type of business and between 5 and 40 employees, and keep those details consistent.")+"\n\n"+
+  (m.desk?deskRule(m)+"\n\n":(m.sc==="gate"||DESK_SCEN.indexOf(m.sc)>=0)?"Who answers: you, the owner. Never say you're someone else or that the owner isn't in.\n\n":"")+
+  "Who you are: "+(m.ctx||"Not given. Invent a believable person for this situation with a name, a type of business and between 5 and 40 employees. Keep those details private and consistent.")+"\n\n"+
   "Your attitude: "+LEVEL[m.lv][1]+"\n\n"+
   "How to play it:\n"+
   "- Your lines are read aloud by a text-to-speech voice. Write only the words this person says out loud: no narration, stage directions, brackets, lists, symbols or emoji.\n"+
@@ -287,6 +302,8 @@ function systemPrompt(m){
   MODE_RULE[modeOf(m)]+"\n"+
   "- The advisor's lines come from speech recognition. They may have no punctuation or a misheard word. Read them charitably and never mention transcription.\n"+
   "- Each advisor line may end with a bracketed note starting \"Delivery:\" that describes how it sounded, measured from their voice. React to it the way a real person reacts to tone. Rushed, unsure, flat or hesitant delivery makes you more guarded, impatient or eager to get off the call. Calm, steady, confident delivery at an easy pace makes you a little more open. Never quote or mention the note, and only comment on how they sound if a real person plausibly would, such as asking them to slow down.\n"+
+  "- Don't volunteer details. Your background (the business, how many people work there, current benefits, how your day is going) is private and only keeps you consistent. Share a detail only when the advisor asks for it or when it is the natural reason behind an objection, and keep it as short and rough as people are with a stranger, such as \"a handful of people\" or \"we've got something through our broker\".\n"+
+  "- Never describe your business, staff or day to set the scene. Nothing like \"I've got twenty people on the floor here\" or \"we're slammed with three jobs today\". People at work say less than that: short answers, a question back such as \"What's this about?\", \"Who are you with?\" or \"What's it cost?\", and no explaining unless asked.\n"+
   "- Be realistic, not easy. Use the objections real owners use when they fit: no time, we already have benefits, I don't want to add cost, my people won't want it, a pushy rep burned me before, just send me an email, call me after the new year.\n"+
   "- React to what the advisor actually says. Warm up when they ask good questions, listen and stay brief and specific. Cool off when they pitch too early, talk too long, dodge a question or push.\n"+
   "- Agree to a next step only if the advisor earns it. If the advisor ends the conversation, say goodbye in one line.\n"+
@@ -536,7 +553,7 @@ function recStart(){
   try{r.start();V.recOn=true;}catch(e){diag("Speech-to-text couldn't start ("+((e&&e.message)||e)+").");}
 }
 function recStop(){V.wantRec=false;try{V.rec&&V.rec.abort();}catch(e){}V.recOn=false;}
-function skipSpeech(){try{speechSynthesis.cancel();}catch(e){}if(V.speakDone)V.speakDone();}
+function skipSpeech(){V.skipped=true;try{speechSynthesis.cancel();}catch(e){}if(V.speakDone)V.speakDone();}
 function resumeTurn(fin,interim){
   const last=V.turns[V.turns.length-1];
   if(!last||last.role!=="you")return;
@@ -556,11 +573,25 @@ function fillVoices(){
   sel.innerHTML=vs.map(v=>'<option value="'+esc(v.name)+'"'+(v===pick?" selected":"")+'>'+esc(v.name.replace(/^Microsoft /,"").replace(/ - English.*$/,""))+' ('+esc(v.lang)+')</option>').join("");
 }
 function chosenVoice(){const n=$("#voice").value;return voices().find(v=>v.name===n)||null;}
-function speak(text){
+/* the employee who answers first gets a different voice from the owner (the voice picked in setup) */
+const MALE_V=/\b(guy|david|mark|daniel|alex|fred|tom|aaron|arthur|male|christopher|eric|roger|andrew|brian|ryan|thomas|james|george|davis|jason|tony|steffan|liam|oliver)\b/i;
+const FEMALE_V=/\b(aria|jenny|zira|samantha|female|susan|hazel|karen|moira|tessa|victoria|allison|ava|emma|michelle|ana|libby|sonia|natasha|clara|catherine|serena|nicky|joanna|jane|nancy|sara|amber|ashley|cora|elizabeth|monica)\b/i;
+function deskVoice(main){
+  const vs=voices().filter(v=>!main||v.name!==main.name);
+  if(!main)return {voice:null,pitch:1};
+  const g=MALE_V.test(main.name)?"m":FEMALE_V.test(main.name)?"f":"";
+  const other=g==="m"?FEMALE_V:g==="f"?MALE_V:null;
+  const sameLang=v=>v.lang===main.lang,nice=v=>/natural|online|google/i.test(v.name);
+  const pick=(other&&(vs.find(v=>other.test(v.name)&&sameLang(v)&&nice(v))||vs.find(v=>other.test(v.name)&&sameLang(v))||vs.find(v=>other.test(v.name))))||
+    vs.find(v=>sameLang(v)&&nice(v))||vs.find(sameLang)||vs[0];
+  return pick?{voice:pick,pitch:1}:{voice:main,pitch:1.25};
+}
+function speak(text,who){
   return new Promise(res=>{
-    const voice=chosenVoice();
-    if(!TTS||!voice){res(0);return;}
-    const u=new SpeechSynthesisUtterance(text);u.voice=voice;u.lang=voice.lang;u.rate=1;u.pitch=1;
+    const main=chosenVoice();
+    if(!TTS||!main||!text){res(0);return;}
+    const dv=who==="desk"?deskVoice(main):null,voice=dv&&dv.voice?dv.voice:main;
+    const u=new SpeechSynthesisUtterance(text);u.voice=voice;u.lang=voice.lang;u.rate=1;u.pitch=dv?dv.pitch:1;
     V.utter=u; // Chrome loses the end event of an utterance nothing refers to
     let t0=0,finished=false;
     const done=()=>{if(finished)return;finished=true;clearTimeout(guard);if(V.utter===u)V.utter=null;V.speakDone=null;res(t0?(performance.now()-t0)/1000:0);};
@@ -619,7 +650,7 @@ function prospectMessages(){
   const msgs=[{role:"user",content:"(The conversation starts now. "+opening(V.meta)+")"}];
   for(const t of V.turns){
     const role=t.role==="you"?"user":"assistant";
-    const content=t.role==="you"?t.text+deliveryNote(t.m):t.text;
+    const content=t.role==="you"?t.text+deliveryNote(t.m):(t.raw||t.text);
     const last=msgs[msgs.length-1];
     if(last.role===role)last.content+="\n"+content;else msgs.push({role,content});
   }
@@ -637,11 +668,12 @@ function callMsg(text,kind,retry){
 function renderLog(){
   const html=V.turns.map(t=>t.role==="you"
     ?'<li class="say say--you"><span class="eyebrow">You</span><p>'+esc(t.text)+'</p>'+(t.m&&t.m.wpm?'<small>'+t.m.wpm+' wpm'+(t.m.ending!=="unclear"?' · ended '+t.m.ending:"")+'</small>':"")+'</li>'
-    :'<li class="say say--them"><span class="eyebrow">Prospect</span><p>'+esc(t.text)+'</p></li>').join("");
+    :'<li class="say say--them"><span class="eyebrow">'+whoLabel(t)+'</span><p>'+esc(t.text)+'</p></li>').join("");
   $("#log").innerHTML=html+(V.state==="listening"?'<li class="say say--you say--live" id="live"><span class="eyebrow">You</span><p>Listening…</p></li>':"")+
     (V.state==="thinking"?'<li class="say say--them say--live"><span class="eyebrow">Prospect</span><p>…</p></li>':"");
   const l=$("#log");l.scrollTop=l.scrollHeight;
 }
+function whoLabel(t){return t.who==="desk"?"Front desk":"Prospect";}
 function showLive(){const el=$("#live p");if(el){const t=(V.turnFinal+" "+V.interim).trim();el.textContent=t||"Listening…";const l=$("#log");l.scrollTop=l.scrollHeight;}}
 async function prospectTurn(){
   const sid=V.sid,seq=V.turnSeq;
@@ -651,10 +683,29 @@ async function prospectTurn(){
   try{text=await claude(PROSPECT_MODEL,systemPrompt(V.meta),prospectMessages(),220,V.ctl.signal);}
   catch(e){if(sid!==V.sid||seq!==V.turnSeq||e.code==="cancelled")return;setStatus("error","Waiting for you");renderLog();callMsg(errCopy(e),"bad",prospectTurn);return;}
   if(sid!==V.sid||seq!==V.turnSeq)return;
-  const turn={role:"prospect",text};V.turns.push(turn);
-  V.lastProspect=text;V.carryFinal="";V.carryInterim="";
+  /* split off the hand-off from the employee to the owner (marked OWNER:), and never show the marker */
+  text=String(text||"").replace(/^\s*(employee|front desk|receptionist|office manager|owner)\s*:\s*/i,m=>/owner/i.test(m)?"OWNER: ":"");
+  let deskPart="",ownerPart=text,handoff=false;
+  const at=text.search(OWNER_MARK);
+  if(at>=0){
+    if(V.meta.desk&&!V.ownerOn){deskPart=text.slice(0,at).trim();ownerPart=text.slice(at).replace(OWNER_MARK,"").trim();handoff=true;}
+    else ownerPart=text.replace(OWNER_MARK,"").trim();
+  }else if(V.meta.desk&&!V.ownerOn){deskPart=text.trim();ownerPart="";}
+  ownerPart=ownerPart.replace(OWNER_MARK,"").trim();
+  const parts=[];
+  if(deskPart)parts.push({role:"prospect",who:"desk",text:deskPart});
+  if(ownerPart)parts.push({role:"prospect",who:"owner",text:ownerPart,raw:handoff?"OWNER: "+ownerPart:undefined});
+  if(!parts.length)parts.push({role:"prospect",who:V.meta.desk&&!V.ownerOn?"desk":"owner",text:"Sorry, what was that?"});
+  if(handoff)V.ownerOn=true;
+  for(const p of parts)V.turns.push(p);
+  V.lastProspect=parts.map(p=>p.text).join(" ");V.carryFinal="";V.carryInterim="";text=V.lastProspect;
   setStatus("prospect","Prospect is talking");renderLog();
-  turn.dur=await speak(text);
+  V.skipped=false;
+  for(let i=0;i<parts.length;i++){
+    if(i>0){if(V.skipped)break;await new Promise(r=>setTimeout(r,900));if(sid!==V.sid||seq!==V.turnSeq||V.skipped)break;}
+    parts[i].dur=await speak(parts[i].text,parts[i].who);
+    if(sid!==V.sid||seq!==V.turnSeq)return;
+  }
   if(sid!==V.sid||seq!==V.turnSeq)return;
   if(/\b(goodbye|bye now|bye-bye|have a good (day|one))\b/i.test(text)&&V.turns.filter(t=>t.role==="you").length>1)toast("Sounds like the conversation is wrapping up. End it when you're ready.");
   listen();
@@ -677,7 +728,8 @@ function endTurn(){
 async function startCall(again){
   if(!store.get("vp-key")){showKey(true);toast("Paste your API key first.");return;}
   if(!again)V.meta={mode:$("#mode").value,sc:$("#scen").value,lv:$("#level").value,ctx:$("#ctx").value.trim().slice(0,2000)};
-  store.set("vp-setup",JSON.stringify(Object.assign({wait:$("#wait").value},V.meta)));
+  store.set("vp-setup",JSON.stringify(Object.assign({wait:$("#wait").value},V.meta,{desk:undefined})));
+  V.meta.desk=rollDesk(V.meta);V.ownerOn=!V.meta.desk;
   store.set("vp-voice",$("#voice").value);
   V.waitMs=+$("#wait").value||1800;
   ensureCtx();
@@ -722,7 +774,7 @@ function renderStats(S){
 }
 function renderTurns(){
   $("#turns").innerHTML='<thead><tr><th>Who</th><th>What was said</th><th class="num">Pace</th><th class="num">Pitch move</th><th>Ending</th></tr></thead><tbody>'+
-    V.turns.map(t=>'<tr><td>'+(t.role==="you"?"You":"Prospect")+'</td><td>'+esc(t.text)+'</td><td class="num">'+(t.m&&t.m.wpm?t.m.wpm:"")+'</td><td class="num">'+(t.m&&t.m.pitchSd!=null?t.m.pitchSd:"")+'</td><td>'+(t.m?esc(t.m.ending+(t.m.question?" (question)":"")):"")+'</td></tr>').join("")+'</tbody>';
+    V.turns.map(t=>'<tr><td>'+(t.role==="you"?"You":whoLabel(t))+'</td><td>'+esc(t.text)+'</td><td class="num">'+(t.m&&t.m.wpm?t.m.wpm:"")+'</td><td class="num">'+(t.m&&t.m.pitchSd!=null?t.m.pitchSd:"")+'</td><td>'+(t.m?esc(t.m.ending+(t.m.question?" (question)":"")):"")+'</td></tr>').join("")+'</tbody>';
 }
 function saveHistory(S){
   let h=[];try{h=JSON.parse(store.get("vp-history")||"[]")||[];}catch(e){}
@@ -744,9 +796,9 @@ async function coach(S){
   const sid=V.sid;
   const lines=V.turns.map(t=>t.role==="you"
     ?"Advisor: "+t.text+(t.m?"  [pace "+(t.m.wpm||"n/a")+" wpm; pitch movement "+(t.m.pitchSd!=null?t.m.pitchSd+" semitones":"n/a")+"; ending "+t.m.ending+(t.m.question?" (looks like a question)":"")+"; volume at end "+(t.m.trailDb!=null?t.m.trailDb+" dB vs the turn":"n/a")+"; answered after "+(t.m.resp!=null?t.m.resp+" s":"n/a")+"]":"")
-    :"Prospect: "+t.text).join("\n");
+    :(t.who==="desk"?"Front desk (employee): ":"Prospect: ")+t.text).join("\n");
   const rows=judge(S).map(r=>"- "+r.name+": "+r.val+" (rule of thumb "+r.guide+") → "+r.read).join("\n");
-  const prompt="Setting: "+MODE[modeOf(V.meta)]+". "+MODE_COACH[modeOf(V.meta)]+"\nSituation: "+sc(V.meta.sc,V.meta.mode)[0]+". "+sc(V.meta.sc,V.meta.mode)[1]+"\nDifficulty: "+LEVEL[V.meta.lv][0]+"\n"+(V.meta.ctx?"Context the advisor gave: "+V.meta.ctx+"\n":"")+
+  const prompt="Setting: "+MODE[modeOf(V.meta)]+". "+MODE_COACH[modeOf(V.meta)]+(V.meta.desk?" An employee answered first and screened for the owner. Also coach on getting past them respectfully: a clear reason, their name, and asking for the owner without being pushy."+(V.ownerOn?"":" The advisor never reached the owner in this call."):"")+"\nSituation: "+sc(V.meta.sc,V.meta.mode)[0]+". "+sc(V.meta.sc,V.meta.mode)[1]+"\nDifficulty: "+LEVEL[V.meta.lv][0]+"\n"+(V.meta.ctx?"Context the advisor gave: "+V.meta.ctx+"\n":"")+
     "\nTranscript (the advisor's words come from speech recognition, so ignore missing punctuation and obvious mishearings):\n"+lines+
     "\n\nDelivery measured from the advisor's microphone:\n"+rows+
     "\n\nGive feedback in plain text with no markdown symbols, in exactly this shape:\n"+
